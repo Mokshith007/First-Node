@@ -10,10 +10,14 @@ const session=require('express-session')
 const MongoDbStore=require('connect-mongodb-session')(session);
 const MONGODB_URI='mongodb+srv://new_user:Mokshith@007@cluster0.inswv.mongodb.net/shop?retryWrites=true&w=majority'
 const app = express();
+const csrf=require('csurf')
+const flash=require('connect-flash')
 const store=new MongoDbStore({
   uri:MONGODB_URI,
   collection:'session',
 })
+const csfrProtection=csrf();
+
 app.set('view engine', 'ejs');
 app.set('views', 'views');
 
@@ -30,6 +34,8 @@ app.use(session({
     saveUninitialized:false,
     store:store
 }))      
+app.use(csfrProtection)
+app.use(flash())
 app.use((req,res,next)=>{
   if(!req.session.user){
     return next();
@@ -41,6 +47,11 @@ app.use((req,res,next)=>{
     })
     .catch(err => console.log(err));
 })
+app.use((req,res,next)=>{
+  res.locals.isAuthenticated= req.session.isLoggedIn
+  res.locals.csrfToken=req.csrfToken()
+  next();
+})
 app.use('/admin', adminRoutes);
 app.use(shopRoutes);
 app.use(authRoutes)
@@ -48,21 +59,6 @@ app.use(errorController.get404);
 
 mongoose.connect(MONGODB_URI,{ useNewUrlParser: true, useUnifiedTopology: true})
 .then(result=>{
-  User.findOne().then(
-    user=>{
-      if(!user){
-        const user=new User({
-          name:'Mokshith',
-          email:'Mokshith.1999@gmail.com',
-          cart:{
-            items:[]
-          }
-        })
-        user.save()
-      }
-    }
-  )
-  
   app.listen(3000);
 }).catch(err=>{
   console.log(err)
